@@ -2,14 +2,20 @@
 
 namespace Psr\Cache;
 
+use Predis\Client;
+
 // This is strictly so that we can work on these packages without publishing
 // them yet. This whole file will eventually be removed.
-require_once '../psr-cache/vendor/autoload.php';
+//require_once '../psr-cache/vendor/autoload.php';
 require_once 'vendor/autoload.php';
 
 date_default_timezone_set('America/Chicago');
 
-$pool = new MemoryPool();
+$pool = new PredisPool(new Client(array(
+    'host' => '192.168.1.100'
+)));
+
+$pool->clear();
 
 // Basic set/get operations.
 $item = $pool->getItem('foo');
@@ -47,9 +53,35 @@ $item = $pool->getItem('baz')->set('baz value', '100');
 $pool->saveDeferred($item);
 $item = $pool->getItem('foo')->set('new foo value', new \DateTime('now + 1min'));
 $pool->saveDeferred($item);
+$item = $pool->getItem('bat')->set('bat value', new \DateTime('now - 1min'));
+$pool->saveDeferred($item);
 $pool->commit();
 
-$items = $pool->getItems(['foo', 'bar', 'baz']);
+$items = $pool->getItems(['foo', 'bar', 'baz', 'bat']);
 assert($items['foo']->get() == 'new foo value');
 assert($items['bar']->get() == 'new bar value');
 assert($items['baz']->get() == 'baz value');
+assert($items['bat']->isHit() === false);
+assert($items['bat']->get() === null);
+
+
+// Test stampede protection
+$pool->setStampedeProtection(true);
+$item = $pool->getItem('bat');
+assert($item->isHit() === false);
+assert($item->get() === null);
+
+$newpool = new PredisPool(new Client(array(
+    'host' => '192.168.1.100'
+)));
+$newpool->setStampedeProtection(true);
+$newitem = $newpool->getItem('bat');
+assert($newitem->isHit() === true);
+assert($newitem->get() === 'bat value');
+
+$item->set('new bat value', 100);
+$pool->save($item);
+
+$newitem = $newpool->getItem('bat');
+assert($newitem->isHit() === true);
+assert($newitem->get() === 'new bat value');

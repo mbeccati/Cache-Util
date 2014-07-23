@@ -3,17 +3,17 @@
 namespace Psr\Cache;
 
 /**
- * In-memory implementation of a cache item.
+ * Predis implementation of a cache item.
  */
-class MemoryCacheItem implements CacheItemInterface {
+class PredisCacheItem implements CacheItemInterface {
     use BasicCacheItemTrait;
 
     /**
-     * @var MemoryPool
+     * @var PredisPool
      */
     protected $pool;
 
-    public function  __construct(MemoryPool $pool, $key, array $data) {
+    public function  __construct(PredisPool  $pool, $key, array $data) {
         $this->pool = $pool;
         $this->key = $key;
         $this->value = $data['value'];
